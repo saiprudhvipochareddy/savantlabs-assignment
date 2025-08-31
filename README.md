@@ -115,5 +115,5 @@ Reference: https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28
 ```
 
 ### Note
-- Replace ${token} with the token shared in the email.
+- Please replace ${token} with the token shared in the email.
 - To run at the organization level, change the ownerType value to ORGANIZATION.
