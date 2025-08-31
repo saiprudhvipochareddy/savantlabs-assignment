@@ -26,7 +26,10 @@ public class RepositoryController {
      */
     @PostMapping("/v1/activity")
     public ResponseEntity<List<RepositoryActivity>> fetchActivitiesByUser(
-            @RequestBody RepositoryRequest repositoryRequest) throws Exception {
+            @RequestBody RepositoryRequest repositoryRequest,
+            @RequestHeader("Authorization") String authHeader) throws Exception {
+        String token = authHeader.replace("Bearer ", "");
+        repositoryRequest.setToken(token);
         RepositoryAdapterType repositoryAdapterType =
                 RepositoryAdapterType.valueOf(repositoryRequest.getRepositoryType());
         return ResponseEntity.ok(repositoryAdapterFactory

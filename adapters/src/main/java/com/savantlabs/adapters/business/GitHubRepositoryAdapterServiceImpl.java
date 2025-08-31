@@ -2,10 +2,12 @@ package com.savantlabs.adapters.business;
 
 import com.savantlabs.adapters.enums.OwnerType;
 import com.savantlabs.adapters.enums.RepositoryAdapterType;
+import com.savantlabs.adapters.exception.CustomException;
 import com.savantlabs.adapters.helpers.GitHubClient;
 import com.savantlabs.adapters.model.RepositoryActivity;
 import com.savantlabs.adapters.model.RepositoryRequest;
 import com.savantlabs.adapters.service.RepositoryAdapterService;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -30,24 +32,17 @@ public class GitHubRepositoryAdapterServiceImpl implements RepositoryAdapterServ
      */
     @Override
     public List<RepositoryActivity> fetchActivity(RepositoryRequest repositoryRequest) throws Exception {
-//        var repos = gitHubClient.(repositoryRequest);
-//        List<RepositoryActivity> result = new ArrayList<>();
-//        for (var repo : repos) {
-//            var commits = gitHubClient.listCommits(owner, repo.getName(), perRepoCommits);
-//            result.add(new RepoActivity(repo, commits));
-//        }
-//        return result;
         String owner = repositoryRequest.getOwner();
         String ownerType = repositoryRequest.getOwnerType();
         if (OwnerType.USER.toString().equals(ownerType)) {
             System.out.println("Fetching at the user level");
-            return gitHubClient.fetchUserReposWithCommits(owner);
+            return gitHubClient.fetchUserReposWithCommits(owner, repositoryRequest.getToken());
         } else if (OwnerType.ORGANIZATION.toString().equals(ownerType)) {
             System.out.println("Fetching at the organization level");
-            return gitHubClient.fetchOrgReposWithCommits(owner);
+            return gitHubClient.fetchOrgReposWithCommits(owner, repositoryRequest.getToken());
         }
 
-        throw new Exception("Owner Type: " + ownerType + " is not valid.");
+        throw new CustomException(HttpStatusCode.valueOf(400), "Owner Type: " + ownerType + " is not valid.");
     }
 
     /**

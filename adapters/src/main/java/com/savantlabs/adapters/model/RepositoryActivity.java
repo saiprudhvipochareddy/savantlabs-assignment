@@ -3,12 +3,12 @@ package com.savantlabs.adapters.model;
 import java.util.List;
 
 public class RepositoryActivity {
-    private RepositorySummary repo;
+    private RepositorySummary repositorySummary;
     private List<CommitSummary> commits;
 
-    public RepositoryActivity(RepositorySummary repo, List<CommitSummary> commits) {
+    public RepositoryActivity(RepositorySummary repositorySummary, List<CommitSummary> commits) {
         this.commits = commits;
-        this.repo = repo;
+        this.repositorySummary = repositorySummary;
     }
 
     public List<CommitSummary> getCommits() {
@@ -19,11 +19,11 @@ public class RepositoryActivity {
         this.commits = commits;
     }
 
-    public RepositorySummary getRepo() {
-        return repo;
+    public RepositorySummary getRepositorySummary() {
+        return repositorySummary;
     }
 
-    public void setRepo(RepositorySummary repo) {
-        this.repo = repo;
+    public void setRepositorySummary(RepositorySummary repositorySummary) {
+        this.repositorySummary = repositorySummary;
     }
 }

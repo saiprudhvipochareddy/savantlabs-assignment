@@ -4,6 +4,15 @@ public class RepositoryRequest {
     private String owner;
     private String ownerType;
     private String repositoryType;
+    private String token;
+
+    public String getToken() {
+        return token;
+    }
+
+    public void setToken(String token) {
+        this.token = token;
+    }
 
     public String getOwner() {
         return owner;

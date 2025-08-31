@@ -1,18 +1,14 @@
 package com.savantlabs.adapters.helpers;
 
+import com.savantlabs.adapters.exception.CustomException;
 import com.savantlabs.adapters.model.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.DefaultResponseErrorHandler;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
 import java.net.URI;
 import java.time.Instant;
 import java.util.*;
@@ -21,40 +17,40 @@ import java.util.*;
 public class GitHubClient {
     private final RestTemplate restTemplate = new RestTemplate();
     private final String baseUrl;
-    private final String token;
     private final Integer perRepoCommits;
     private final String userReposUrl;
     private final String orgReposUrl;
+    private final String repoCommitsUrl;
 
     public GitHubClient(@Value("${github.baseUrl}") String baseUrl,
-                        @Value("${github.token:}") String token,
                         @Value("${github.max.commits}") Integer perRepoCommits,
                         @Value("${github.user.repos.url}") String userReposUrl,
-                        @Value("${github.org.repos.url}") String orgReposUrl) {
+                        @Value("${github.org.repos.url}") String orgReposUrl,
+                        @Value("${github.repo.commits}") String repoCommitsUrl) {
         this.baseUrl = baseUrl;
-        this.token = token;
         this.perRepoCommits = perRepoCommits;
         this.userReposUrl = userReposUrl;
         this.orgReposUrl = orgReposUrl;
+        this.repoCommitsUrl = repoCommitsUrl;
     }
 
-    public List<RepositoryActivity> fetchUserReposWithCommits(String username) {
+    public List<RepositoryActivity> fetchUserReposWithCommits(String username, String token) throws Exception {
         String url = baseUrl + userReposUrl.replace("{userName}", username);
         return fetchReposAndCommits(url, username, token);
     }
 
-    public List<RepositoryActivity> fetchOrgReposWithCommits(String orgName) {
+    public List<RepositoryActivity> fetchOrgReposWithCommits(String orgName, String token) throws Exception {
         String url = baseUrl + orgReposUrl.replace("{orgName}", orgName);
         return fetchReposAndCommits(url, orgName, token);
     }
 
-    private List<RepositoryActivity> fetchReposAndCommits(String url, String owner, String token) {
+    private List<RepositoryActivity> fetchReposAndCommits(String url, String owner, String token) throws Exception {
         List<GitHubRepository> gitHubRepositories =
                 fetchPaged(url, token, new ParameterizedTypeReference<List<GitHubRepository>>() {});
 
         return gitHubRepositories.stream()
                 .map(gitHubRepository -> {
-                    List<CommitSummary> commits = fetchCommits(owner, gitHubRepository.getName());
+                    List<CommitSummary> commits = fetchCommits(owner, gitHubRepository.getName(), token);
                     RepositorySummary repositorySummary = new RepositorySummary();
                     repositorySummary.setName(gitHubRepository.getName());
                     repositorySummary.setFullName(gitHubRepository.getFullName());
@@ -65,25 +61,36 @@ public class GitHubClient {
                 }).toList();
     }
 
-    public List<CommitSummary> fetchCommits(String owner, String repo) {
-        String url = baseUrl + "/repos/" + owner + "/" + repo + "/commits?per_page=" + perRepoCommits;
-        
-        try {
+    private <T> List<T> fetchPaged(String firstUrl, String token, ParameterizedTypeReference<List<T>> typeRef) throws Exception {
+        List<T> out = new ArrayList<>();
+        String next = firstUrl;
 
-            ResponseEntity<List<GitHubCommit>> gitHubCommits
-                    = restTemplateExchangeGet(url, new ParameterizedTypeReference<List<GitHubCommit>>() {
-            });
+        while (next != null) {
+            ResponseEntity<List<T>> resp = restTemplateExchangeGet(next, typeRef, token);
 
-            gitHubCommits = handleRateLimitAndErrors(gitHubCommits, url, new ParameterizedTypeReference<List<GitHubCommit>>() {
-            });
+            resp = handleRateLimitAndErrors(resp, next, typeRef, token);
 
-            return getCommitSummaries(gitHubCommits);
-
-        } catch (Exception e) {
-//            return handleRateLimitAndErrors(gitHubCommits, url, new ParameterizedTypeReference<List<GitHubCommit>>() {
-//            });
+            if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
+                out.addAll(resp.getBody());
+                next = nextLink(resp.getHeaders()).orElse(null);
+                System.out.println(next);
+            } else {
+                break;
+            }
         }
-        return null;
+
+        return out;
+    }
+
+    public List<CommitSummary> fetchCommits(String owner, String repo, String token) {
+        String url = baseUrl +
+                repoCommitsUrl.replace("{userName}", owner).replace("{repoName}", repo) + perRepoCommits;
+
+        ResponseEntity<List<GitHubCommit>> gitHubCommits
+                = restTemplateExchangeGet(url, new ParameterizedTypeReference<List<GitHubCommit>>() {
+        }, token);
+
+        return getCommitSummaries(gitHubCommits);
     }
 
     private static List<CommitSummary> getCommitSummaries(ResponseEntity<List<GitHubCommit>> gitHubCommits) {
@@ -104,27 +111,6 @@ public class GitHubClient {
             commits.add(summary);
         }
         return commits;
-    }
-
-    public <T> List<T> fetchPaged(String firstUrl, String token, ParameterizedTypeReference<List<T>> typeRef) {
-        List<T> out = new ArrayList<>();
-        String next = firstUrl;
-
-        while (next != null) {
-            ResponseEntity<List<T>> resp = restTemplateExchangeGet(next, typeRef);
-
-            resp = handleRateLimitAndErrors(resp, next, typeRef);
-
-            if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
-                out.addAll(resp.getBody());
-                next = nextLink(resp.getHeaders()).orElse(null);
-                System.out.println(next);
-            } else {
-                break;
-            }
-        }
-
-        return out;
     }
 
     private Optional<String> nextLink(HttpHeaders headers) {
@@ -150,16 +136,27 @@ public class GitHubClient {
         return Optional.empty();
     }
 
-    private <T> ResponseEntity<List<T>> restTemplateExchangeGet(String url, ParameterizedTypeReference<List<T>> typeRef) {
-        return restTemplate.exchange(
-                URI.create(url),
-                HttpMethod.GET,
-                new HttpEntity<>(headers()),
-                typeRef
-        );
+    private <T> ResponseEntity<List<T>> restTemplateExchangeGet(String url, ParameterizedTypeReference<List<T>> typeRef, String token) {
+        try {
+            return restTemplate.exchange(
+                    URI.create(url),
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers(token)),
+                    typeRef
+            );
+        } catch (HttpStatusCodeException ex) {
+            String errorBody = ex.getResponseBodyAsString();
+            HttpStatusCode status = ex.getStatusCode();
+
+            System.err.println("GitHub API error: " + status + " → " + errorBody);
+
+            return ResponseEntity.status(status).body(Collections.emptyList());
+        } catch (Exception ex) {
+            throw new RuntimeException("Unexpected error calling GitHub API: " + url, ex);
+        }
     }
 
-    private HttpHeaders headers() {
+    private HttpHeaders headers(String token) {
         HttpHeaders h = new HttpHeaders();
         h.set(HttpHeaders.ACCEPT, "application/vnd.github+json");
         h.set(HttpHeaders.USER_AGENT, "gh-commits-api/1.0");
@@ -167,45 +164,49 @@ public class GitHubClient {
         return h;
     }
 
-    // Check this out once
     private <T> ResponseEntity<List<T>> handleRateLimitAndErrors(ResponseEntity<List<T>> response,
                                                                  String url,
-                                                                 ParameterizedTypeReference<List<T>> typeRef) {
-        int status = response.getStatusCode().value();
+                                                                 ParameterizedTypeReference<List<T>> typeRef,
+                                                                 String token) throws Exception {
+        HttpStatusCode status = response.getStatusCode();
 
-        if (status == 401) {
-            throw new RuntimeException("Unauthorized: missing or invalid GitHub token");
+        if (status == HttpStatus.UNAUTHORIZED) {
+            System.err.println("Unauthorized: missing or invalid GitHub token");
+            throw new CustomException(status, "Unauthorized: missing or invalid GitHub token");
         }
 
-        if (status == 403) {
+        if (status == HttpStatus.FORBIDDEN) {
             HttpHeaders headers = response.getHeaders();
             String remaining = headers.getFirst("X-RateLimit-Remaining");
             String reset = headers.getFirst("X-RateLimit-Reset");
 
-            // Only wait if it's really a rate limit
             if ("0".equals(remaining) && reset != null) {
                 long resetEpoch = Long.parseLong(reset);
                 long waitMs = (resetEpoch - Instant.now().getEpochSecond()) * 1000L;
+
                 if (waitMs > 0) {
-                    System.out.println("Rate limited. Waiting " + (waitMs / 1000) + "s...");
+                    System.out.println("Rate limited. Waiting " + (waitMs / 1000));
                     try {
                         Thread.sleep(waitMs);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
                 }
-                return restTemplateExchangeGet(url, typeRef);
+                return restTemplateExchangeGet(url, typeRef, token);
             }
 
-            throw new RuntimeException("Forbidden: request blocked (not rate-limit?)");
+            System.err.println("Forbidden: rate-limit exceeded");
+            throw new CustomException(status, "Forbidden: rate-limit exceeded");
         }
 
-        if (status == 404) {
-            throw new RuntimeException("Not found: " + url);
+        if (status == HttpStatus.NOT_FOUND) {
+            System.err.println("Not found: " + url);
+            throw new CustomException(status, "Not found: " + url);
         }
 
-        if (!response.getStatusCode().is2xxSuccessful()) {
-            throw new RuntimeException("GitHub error: " + response.getStatusCode());
+        if (!status.is2xxSuccessful()) {
+            System.err.println("GitHub error: " + status);
+            throw new CustomException(status, "GitHub error: " + status);
         }
 
         return response;
