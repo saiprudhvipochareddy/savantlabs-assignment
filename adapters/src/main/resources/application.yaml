@@ -1,5 +1,5 @@
 server:
-  port: 8082
+  port: 8081
 github:
   baseUrl: https://api.github.com
   user.repos.url: /users/{userName}/repos?page_size=100&type=public
