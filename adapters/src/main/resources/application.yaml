@@ -1,0 +1,8 @@
+server:
+  port: 8081
+github:
+  baseUrl: https://api.github.com
+  user.repos.url: /users/{userName}/repos?page_size=100&type=public
+  org.repos.url: /orgs/{orgName}/repos?page_size=100&type=public
+  token: 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
+  max.commits: 20
