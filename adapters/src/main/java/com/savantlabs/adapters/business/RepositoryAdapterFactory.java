@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -14,20 +15,20 @@ import java.util.stream.Collectors;
  **/
 @Service
 public class RepositoryAdapterFactory {
-    private final Map<RepositoryAdapterType, RepositoryAdapterService> repositoryAdapterTypeRepositoryAdapterMap;
+    private final Map<RepositoryAdapterType, RepositoryAdapterService> adapterServiceMap;
 
     /**
      * Initializes the factory with a list of available repository adapter services.
      */
     public RepositoryAdapterFactory(List<RepositoryAdapterService> repositoryAdapterServiceList) {
-        repositoryAdapterTypeRepositoryAdapterMap = repositoryAdapterServiceList.stream()
+        adapterServiceMap = repositoryAdapterServiceList.stream()
                 .collect(Collectors.toUnmodifiableMap(RepositoryAdapterService::getRepository, Function.identity()));
     }
 
     /**
      * Returns the repository adapter service for the given adapter type.
      */
-    public RepositoryAdapterService getRepositoryAdapterService(RepositoryAdapterType repositoryAdapterType) {
-        return repositoryAdapterTypeRepositoryAdapterMap.get(repositoryAdapterType);
+    public Optional<RepositoryAdapterService> getRepositoryAdapterService(RepositoryAdapterType repositoryAdapterType) {
+        return Optional.ofNullable(adapterServiceMap.get(repositoryAdapterType));
     }
 }

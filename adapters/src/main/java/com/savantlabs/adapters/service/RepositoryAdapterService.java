@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface RepositoryAdapterService {
 
-    List<RepositoryActivity> fetchActivity(RepositoryRequest repositoryRequest) throws Exception;
+    List<RepositoryActivity> fetchRepositoryActivities(RepositoryRequest repositoryRequest) throws Exception;
 
     RepositoryAdapterType getRepository();
 }

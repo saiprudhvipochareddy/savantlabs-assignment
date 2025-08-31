@@ -31,7 +31,7 @@ public class GitHubRepositoryAdapterServiceImpl implements RepositoryAdapterServ
      * @return a list of repository activity entries
      */
     @Override
-    public List<RepositoryActivity> fetchActivity(RepositoryRequest repositoryRequest) throws Exception {
+    public List<RepositoryActivity> fetchRepositoryActivities(RepositoryRequest repositoryRequest) throws Exception {
         String owner = repositoryRequest.getOwner();
         String ownerType = repositoryRequest.getOwnerType();
         if (OwnerType.USER.toString().equals(ownerType)) {

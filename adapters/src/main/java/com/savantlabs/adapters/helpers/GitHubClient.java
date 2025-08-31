@@ -46,7 +46,7 @@ public class GitHubClient {
 
     private List<RepositoryActivity> fetchReposAndCommits(String url, String owner, String token) throws Exception {
         List<GitHubRepository> gitHubRepositories =
-                fetchPaged(url, token, new ParameterizedTypeReference<List<GitHubRepository>>() {});
+                fetchAllPages(url, token, new ParameterizedTypeReference<List<GitHubRepository>>() {});
 
         return gitHubRepositories.stream()
                 .map(gitHubRepository -> {
@@ -61,7 +61,7 @@ public class GitHubClient {
                 }).toList();
     }
 
-    private <T> List<T> fetchPaged(String firstUrl, String token, ParameterizedTypeReference<List<T>> typeRef) throws Exception {
+    private <T> List<T> fetchAllPages(String firstUrl, String token, ParameterizedTypeReference<List<T>> typeRef) throws Exception {
         List<T> out = new ArrayList<>();
         String next = firstUrl;
 
